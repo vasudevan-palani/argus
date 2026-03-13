@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Argus Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+    <style>
+      .argus-md h1 { font-size: 1rem; font-weight: 700; margin: .25rem 0; }
+      .argus-md h2 { font-size: .95rem; font-weight: 700; margin: .25rem 0; }
+      .argus-md h3 { font-size: .9rem; font-weight: 700; margin: .25rem 0; }
+      .argus-md p { margin: .25rem 0; }
+      .argus-md ul { list-style: disc; padding-left: 1.25rem; margin: .25rem 0; }
+      .argus-md ol { list-style: decimal; padding-left: 1.25rem; margin: .25rem 0; }
+      .argus-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: .85em; background: rgb(241 245 249); padding: 0 .25rem; border-radius: .25rem; }
+      .argus-md pre { margin: .5rem 0; overflow: auto; background: rgb(15 23 42); color: white; padding: .75rem; border-radius: .75rem; }
+      .argus-md pre code { background: transparent; padding: 0; color: inherit; }
+      .argus-md a { color: rgb(109 40 217); text-decoration: underline; }
+      .argus-md hr { margin: .5rem 0; border-color: rgb(226 232 240); }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <div class="mx-auto max-w-7xl px-4 py-10">
+      <div class="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">Argus</h1>
+          <p class="mt-1 text-sm text-slate-600">Configured apps from monitor.config.yaml</p>
+        </div>
+        <div class="rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Mode</p>
+          <p id="mode" class="mt-1 text-sm font-medium">—</p>
+        </div>
+      </div>
+
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <input id="search" class="w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-violet-500 focus:outline-none" placeholder="Search apps…" />
+        </div>
+        <button id="refresh" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-200" type="button">Refresh</button>
+      </div>
+
+      <div id="grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+
+      <div id="detail" class="hidden">
+        <div class="mb-4">
+          <a id="back" class="text-sm font-semibold text-slate-600 hover:text-slate-900" href="#/">← Back to apps</a>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+          <div class="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="detailName" class="text-xl font-bold">—</h2>
+                <p id="detailId" class="mt-1 font-mono text-xs text-slate-500">—</p>
+              </div>
+              <div id="detailTopology" class="text-sm font-semibold text-slate-700">—</div>
+            </div>
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Regions</p>
+                <p id="detailRegions" class="mt-2 text-sm font-medium">—</p>
+              </div>
+              <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Failover</p>
+                <p id="detailFailover" class="mt-2 text-sm font-medium">—</p>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Owners</p>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Primary</p>
+                  <p id="ownerPrimary" class="mt-2 text-sm text-slate-700">—</p>
+                </div>
+                <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Secondary</p>
+                  <p id="ownerSecondary" class="mt-2 text-sm text-slate-700">—</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Notifications</p>
+              <div id="detailNotifications" class="mt-3 rounded-lg bg-white p-3 text-sm text-slate-700 ring-1 ring-slate-200">—</div>
+            </div>
+
+            <div class="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Escalation</p>
+              <div id="detailEscalation" class="mt-3 rounded-lg bg-white p-3 text-sm text-slate-700 ring-1 ring-slate-200">—</div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-sm font-semibold">Incidents</p>
+                <p class="mt-1 text-sm text-slate-600">Recent incidents for this app</p>
+              </div>
+              <button id="refreshDetail" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-200" type="button">Refresh</button>
+            </div>
+
+            <div id="incidentsList" class="mt-4 space-y-3"></div>
+
+            <div class="mt-4 flex items-center justify-between">
+              <p id="incidentsPage" class="text-xs text-slate-500">—</p>
+              <div class="flex items-center gap-2">
+                <button id="incidentsPrev" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Prev</button>
+                <button id="incidentsNext" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Next</button>
+              </div>
+            </div>
+
+            <div class="mt-6 border-t border-slate-100 pt-5">
+              <p class="text-sm font-semibold">Notifications Log</p>
+              <p class="mt-1 text-sm text-slate-600">Delivery attempts sent to owners (Teams/SMS/Call)</p>
+
+              <div id="notificationsList" class="mt-4 space-y-3"></div>
+
+              <div class="mt-4 flex items-center justify-between">
+                <p id="notificationsPage" class="text-xs text-slate-500">—</p>
+                <div class="flex items-center gap-2">
+                  <button id="notificationsPrev" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Prev</button>
+                  <button id="notificationsNext" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Next</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="pointer-events-none fixed bottom-6 right-6 hidden max-w-md rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
+
+      <div id="chatWrap" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+        <div id="chat" class="hidden w-[380px] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <div>
+              <p class="text-sm font-semibold">Assistant</p>
+              <p id="chatContext" class="text-xs text-slate-500">No app selected</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="chatMax" class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Maximize</button>
+              <button id="chatClose" class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200" type="button">Close</button>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="max-h-[420px] space-y-3 overflow-auto px-4 py-3"></div>
+
+          <div class="border-t border-slate-100 px-4 py-3">
+            <form id="chatForm" class="flex items-center gap-2">
+              <input id="chatInput" class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none" placeholder="Ask about apps, config, incidents…" />
+              <button class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700" type="submit">Send</button>
+            </form>
+          </div>
+        </div>
+
+        <button id="chatOpen" class="rounded-full bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-violet-700" type="button">Chat</button>
+      </div>
+    </div>
+
+    <script>
+      const elGrid = document.getElementById('grid');
+      const elMode = document.getElementById('mode');
+      const elToast = document.getElementById('toast');
+      const elSearch = document.getElementById('search');
+
+      const elChat = document.getElementById('chat');
+      const elChatOpen = document.getElementById('chatOpen');
+      const elChatMax = document.getElementById('chatMax');
+      const elChatClose = document.getElementById('chatClose');
+      const elChatForm = document.getElementById('chatForm');
+      const elChatInput = document.getElementById('chatInput');
+      const elChatMessages = document.getElementById('chatMessages');
+      const elChatContext = document.getElementById('chatContext');
+
+      let thinkingEl = null;
+
+      let apps = [];
+      let selectedAppId = null;
+      let chatHistory = [];
+      let chatMaximized = false;
+
+      const elDetail = document.getElementById('detail');
+      const elBack = document.getElementById('back');
+      const elDetailName = document.getElementById('detailName');
+      const elDetailId = document.getElementById('detailId');
+      const elDetailTopology = document.getElementById('detailTopology');
+      const elDetailRegions = document.getElementById('detailRegions');
+      const elDetailFailover = document.getElementById('detailFailover');
+      const elOwnerPrimary = document.getElementById('ownerPrimary');
+      const elOwnerSecondary = document.getElementById('ownerSecondary');
+      const elDetailNotifications = document.getElementById('detailNotifications');
+      const elDetailEscalation = document.getElementById('detailEscalation');
+      const elIncidentsList = document.getElementById('incidentsList');
+      const elRefreshDetail = document.getElementById('refreshDetail');
+      const elIncidentsPage = document.getElementById('incidentsPage');
+      const elIncidentsPrev = document.getElementById('incidentsPrev');
+      const elIncidentsNext = document.getElementById('incidentsNext');
+
+      const elNotificationsList = document.getElementById('notificationsList');
+      const elNotificationsPage = document.getElementById('notificationsPage');
+      const elNotificationsPrev = document.getElementById('notificationsPrev');
+      const elNotificationsNext = document.getElementById('notificationsNext');
+
+      let incidentsOffset = 0;
+      const incidentsLimit = 8;
+      let notificationsOffset = 0;
+      const notificationsLimit = 8;
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      function showThinking() {
+        if (thinkingEl) return;
+        const container = document.createElement('div');
+        container.className = 'flex flex-col gap-2';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'mr-auto max-w-[85%] rounded-2xl bg-slate-100 px-3 py-2 text-sm text-slate-900';
+        bubble.innerHTML = '<span class="inline-flex items-center gap-2"><span class="text-slate-500">Thinking</span><span class="inline-flex w-6 justify-start"><span id="dots">...</span></span></span>';
+
+        const style = document.createElement('style');
+        style.textContent = '@keyframes argusDots{0%{content:"."}33%{content:".."}66%{content:"..."}100%{content:"."}}';
+
+        container.appendChild(style);
+        container.appendChild(bubble);
+
+        const dots = bubble.querySelector('#dots');
+        let i = 0;
+        const frames = ['.', '..', '...'];
+        const timer = setInterval(() => {
+          if (!dots) return;
+          dots.textContent = frames[i % frames.length];
+          i++;
+        }, 450);
+
+        container.dataset.thinking = '1';
+        container._timer = timer;
+
+        elChatMessages.appendChild(container);
+        elChatMessages.scrollTop = elChatMessages.scrollHeight;
+        thinkingEl = container;
+      }
+
+      function hideThinking() {
+        if (!thinkingEl) return;
+        try {
+          clearInterval(thinkingEl._timer);
+        } catch (e) {}
+        thinkingEl.remove();
+        thinkingEl = null;
+      }
+
+      function showToast(msg) {
+        elToast.textContent = msg;
+        elToast.classList.remove('hidden');
+        setTimeout(() => elToast.classList.add('hidden'), 2500);
+      }
+
+      async function api(path, opts = {}) {
+        const resp = await fetch(path, {
+          headers: { 'Content-Type': 'application/json' },
+          ...opts,
+        });
+        const contentType = resp.headers.get('content-type') || '';
+        const data = contentType.includes('application/json') ? await resp.json() : await resp.text();
+        if (!resp.ok) {
+          const msg = data && data.error ? data.error : (data && data.detail ? data.detail : `Request failed: ${resp.status}`);
+          throw new Error(msg);
+        }
+        return data;
+      }
+
+      function healthPill(inc) {
+        if (!inc) return '<span class="text-sm text-slate-400">No active incident</span>';
+        const cls = {
+          down: 'bg-red-100 text-red-800 ring-red-200',
+          degraded: 'bg-amber-100 text-amber-800 ring-amber-200',
+          healthy: 'bg-emerald-100 text-emerald-800 ring-emerald-200'
+        }[inc.health_status] || 'bg-sky-100 text-sky-800 ring-sky-200';
+        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${cls}">${escapeHtml(inc.health_status.toUpperCase())}</span>`;
+      }
+
+      function statePill(state) {
+        if (!state) return '';
+        const cls = {
+          awaiting_approval: 'bg-violet-100 text-violet-800 ring-violet-200',
+          detected: 'bg-amber-100 text-amber-800 ring-amber-200',
+          notified: 'bg-blue-100 text-blue-800 ring-blue-200',
+          escalated: 'bg-red-100 text-red-800 ring-red-200',
+          resolved: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+          action_executed: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+          approved: 'bg-emerald-100 text-emerald-800 ring-emerald-200'
+        }[state] || 'bg-slate-100 text-slate-800 ring-slate-200';
+        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${cls}">${escapeHtml(state)}</span>`;
+      }
+
+      function render() {
+        const q = (elSearch.value || '').toLowerCase().trim();
+        const filtered = apps.filter(a => !q || a.id.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
+
+        if (!filtered.length) {
+          elGrid.innerHTML = '<div class="col-span-full rounded-2xl bg-white p-8 text-center text-slate-500 shadow-sm ring-1 ring-slate-200">No apps found</div>';
+          return;
+        }
+
+        elGrid.innerHTML = filtered.map(a => {
+          const openCount = Number(a.open_incidents_count || 0);
+          const pending = !!a.pending_approval;
+          const incidentBadge = openCount > 0
+            ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">${openCount} open</span>`
+            : `<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">No open incidents</span>`;
+          const approvalBadge = pending
+            ? `<span class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200">Approval pending</span>`
+            : '';
+
+          const selectedRing = selectedAppId === a.id ? 'ring-violet-300' : 'ring-slate-200';
+
+          return `
+            <div data-app="${escapeHtml(a.id)}" class="cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ${selectedRing} hover:ring-violet-300">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold">${escapeHtml(a.name)}</p>
+                  <p class="mt-1 font-mono text-xs text-slate-500">${escapeHtml(a.id)}</p>
+                </div>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  ${incidentBadge}
+                  ${approvalBadge}
+                </div>
+              </div>
+
+              <div class="mt-4 grid grid-cols-2 gap-3">
+                <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Topology</p>
+                  <p class="mt-1 text-sm font-medium">${escapeHtml(a.topology)}</p>
+                </div>
+                <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Regions</p>
+                  <p class="mt-1 text-sm font-medium">${escapeHtml((a.regions || []).join(', ') || '—')}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function setRoute(hash) {
+        if (!hash || hash === '#') {
+          window.location.hash = '#/';
+          return;
+        }
+        if (!hash.startsWith('#/')) {
+          window.location.hash = '#/';
+        }
+      }
+
+      function currentRoute() {
+        const h = window.location.hash || '#/';
+        if (h.startsWith('#/app/')) {
+          const appId = decodeURIComponent(h.slice('#/app/'.length));
+          return { view: 'app', appId };
+        }
+        return { view: 'grid' };
+      }
+
+      async function renderDetail(appId) {
+        selectedAppId = appId;
+        elChatContext.textContent = selectedAppId ? `Selected: ${selectedAppId}` : 'No app selected';
+
+        elGrid.classList.add('hidden');
+        elDetail.classList.remove('hidden');
+        elSearch.disabled = true;
+
+        const appCfg = await api(`/api/apps/${encodeURIComponent(appId)}`);
+        const incidentsResp = await api(`/api/apps/${encodeURIComponent(appId)}/incidents?limit=${incidentsLimit}&offset=${incidentsOffset}`);
+        const notificationsResp = await api(`/api/apps/${encodeURIComponent(appId)}/notifications?limit=${notificationsLimit}&offset=${notificationsOffset}`);
+        const incidents = incidentsResp.items || [];
+        const incidentsTotal = Number(incidentsResp.total || 0);
+        const incidentsHasMore = !!incidentsResp.has_more;
+        const notifications = notificationsResp.items || [];
+        const notificationsTotal = Number(notificationsResp.total || 0);
+        const notificationsHasMore = !!notificationsResp.has_more;
+
+        elDetailName.textContent = appCfg.name;
+        elDetailId.textContent = appCfg.id;
+        elDetailTopology.textContent = appCfg.topology;
+        elDetailRegions.textContent = (appCfg.regions || []).join(', ') || '—';
+        if (!appCfg.failover) {
+          elDetailFailover.textContent = 'Not configured';
+        } else {
+          const allowed = appCfg.failover.allowed ? 'Allowed' : 'Not allowed';
+          const approval = appCfg.failover.approval_required ? 'Approval required' : 'No approval required';
+          const cooldown = (appCfg.failover.cooldown_minutes != null) ? `${appCfg.failover.cooldown_minutes}m cooldown` : null;
+          elDetailFailover.textContent = [allowed, approval, cooldown].filter(Boolean).join(' • ');
+        }
+
+        function ownerLine(o) {
+          if (!o) return '—';
+          const parts = [];
+          if (o.name) parts.push(o.name);
+          if (o.email) parts.push(`<${o.email}>`);
+          if (o.phone) parts.push(o.phone);
+          return parts.join(' ');
+        }
+
+        elOwnerPrimary.textContent = ownerLine(appCfg.owners && appCfg.owners.primary);
+        elOwnerSecondary.textContent = ownerLine(appCfg.owners && appCfg.owners.secondary);
+        function renderNotifications(n) {
+          if (!n) return '<span class="text-slate-500">Not configured</span>';
+          const teams = n.teams ? `Teams: configured` : `Teams: not configured`;
+          const sms = n.sms ? (n.sms.enabled ? 'SMS: enabled' : 'SMS: disabled') : 'SMS: not configured';
+          const call = n.call ? (n.call.enabled ? 'Call: enabled' : 'Call: disabled') : 'Call: not configured';
+
+          return `
+            <div class="grid gap-2 sm:grid-cols-3">
+              <div class="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Teams</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(teams)}</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">SMS</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(sms)}</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Call</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(call)}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        function renderEscalation(escalation) {
+          if (!escalation || !escalation.length) {
+            return '<span class="text-slate-500">No escalation steps configured</span>';
+          }
+
+          const rows = escalation.map((s, idx) => {
+            const delay = (s.delay_minutes != null) ? `${s.delay_minutes}m` : '—';
+            const channel = s.channel ? String(s.channel).toUpperCase() : '—';
+            const target = s.target || '—';
+            return `
+              <tr class="border-t border-slate-100">
+                <td class="py-2 pr-3 font-mono text-xs text-slate-500">${idx + 1}</td>
+                <td class="py-2 pr-3 text-sm font-medium">${escapeHtml(channel)}</td>
+                <td class="py-2 pr-3 text-sm">${escapeHtml(target)}</td>
+                <td class="py-2 text-sm text-slate-600">${escapeHtml(delay)}</td>
+              </tr>
+            `;
+          }).join('');
+
+          return `
+            <div class="overflow-x-auto">
+              <table class="min-w-full">
+                <thead>
+                  <tr class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <th class="py-2 pr-3">#</th>
+                    <th class="py-2 pr-3">Channel</th>
+                    <th class="py-2 pr-3">Target</th>
+                    <th class="py-2">Delay</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        elDetailNotifications.innerHTML = renderNotifications(appCfg.notifications);
+        elDetailEscalation.innerHTML = renderEscalation(appCfg.escalation);
+
+        if (!incidents.length) {
+          elIncidentsList.innerHTML = '<div class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 ring-1 ring-slate-200">No incidents for this app.</div>';
+        } else {
+          elIncidentsList.innerHTML = incidents.map((inc) => {
+            const hasApproval = inc.state === 'awaiting_approval';
+            const buttons = hasApproval ? `
+              <div class="mt-3 flex flex-wrap items-center gap-2">
+                <button data-action="approve" data-incident="${escapeHtml(inc.id)}" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700" type="button">Approve</button>
+                <button data-action="reject" data-incident="${escapeHtml(inc.id)}" class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-200" type="button">Reject</button>
+              </div>
+            ` : '';
+
+            return `
+              <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <p class="font-mono text-xs text-slate-600">${escapeHtml(inc.id.slice(0, 8))}</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(inc.health_status.toUpperCase())} | ${Math.round(inc.health_score)}/100</p>
+                    <p class="mt-1 text-sm text-slate-600">Region: <span class="font-semibold">${escapeHtml(inc.region)}</span></p>
+                  </div>
+                  ${statePill(inc.state)}
+                </div>
+                <p class="mt-3 text-sm text-slate-700">${escapeHtml((inc.summary || '—').slice(0, 240))}</p>
+                ${buttons}
+              </div>
+            `;
+          }).join('');
+        }
+
+        const incFrom = incidentsTotal === 0 ? 0 : (incidentsOffset + 1);
+        const incTo = Math.min(incidentsOffset + incidents.length, incidentsTotal);
+        elIncidentsPage.textContent = `Showing ${incFrom}-${incTo} of ${incidentsTotal}`;
+        elIncidentsPrev.disabled = incidentsOffset <= 0;
+        elIncidentsNext.disabled = !incidentsHasMore;
+
+        if (!notifications.length) {
+          elNotificationsList.innerHTML = '<div class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 ring-1 ring-slate-200">No notification attempts logged for this app.</div>';
+        } else {
+          elNotificationsList.innerHTML = notifications.map((n) => {
+            const ok = !!n.success;
+            const badge = ok
+              ? '<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">Delivered</span>'
+              : '<span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 ring-1 ring-inset ring-red-200">Failed</span>';
+            const when = n.attempted_at ? new Date(n.attempted_at).toLocaleString() : '—';
+            const channel = (n.channel || '—').toUpperCase();
+            const target = n.target || '—';
+            const dest = n.phone_or_webhook ? String(n.phone_or_webhook) : '—';
+            const err = n.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(n.error)}</p>` : '';
+
+            return `
+              <details class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <summary class="cursor-pointer list-none">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <p class="text-sm font-semibold">${escapeHtml(channel)} → ${escapeHtml(target)}</p>
+                      <p class="mt-1 text-xs text-slate-600">${escapeHtml(when)} • Incident ${escapeHtml(String(n.incident_id).slice(0, 8))}</p>
+                      <p class="mt-1 text-xs text-slate-600">Destination: ${escapeHtml(dest)}</p>
+                    </div>
+                    <div>${badge}</div>
+                  </div>
+                </summary>
+                ${err}
+                <div class="mt-3 rounded-lg bg-white p-3 text-xs text-slate-700 ring-1 ring-slate-200 whitespace-pre-wrap">${escapeHtml((n.message || '').slice(0, 2000) || '—')}</div>
+              </details>
+            `;
+          }).join('');
+        }
+
+        const notifFrom = notificationsTotal === 0 ? 0 : (notificationsOffset + 1);
+        const notifTo = Math.min(notificationsOffset + notifications.length, notificationsTotal);
+        elNotificationsPage.textContent = `Showing ${notifFrom}-${notifTo} of ${notificationsTotal}`;
+        elNotificationsPrev.disabled = notificationsOffset <= 0;
+        elNotificationsNext.disabled = !notificationsHasMore;
+      }
+
+      async function renderRoute() {
+        setRoute(window.location.hash);
+        const route = currentRoute();
+        if (route.view === 'app') {
+          await renderDetail(route.appId);
+          return;
+        }
+
+        elDetail.classList.add('hidden');
+        elGrid.classList.remove('hidden');
+        elSearch.disabled = false;
+        render();
+      }
+
+      async function load() {
+        const status = await api('/api/status');
+        elMode.textContent = status.dry_run ? 'Dry run' : 'Live';
+        apps = await api('/api/apps');
+        if (!selectedAppId && apps.length) {
+          selectedAppId = apps[0].id;
+        }
+        elChatContext.textContent = selectedAppId ? `Selected: ${selectedAppId}` : 'No app selected';
+        await renderRoute();
+      }
+
+      elRefreshDetail.addEventListener('click', () => renderRoute().catch((e) => showToast(e.message)));
+      window.addEventListener('hashchange', () => renderRoute().catch((e) => showToast(e.message)));
+
+      elIncidentsPrev.addEventListener('click', () => {
+        incidentsOffset = Math.max(0, incidentsOffset - incidentsLimit);
+        renderRoute().catch((e) => showToast(e.message));
+      });
+
+      elIncidentsNext.addEventListener('click', () => {
+        incidentsOffset = incidentsOffset + incidentsLimit;
+        renderRoute().catch((e) => showToast(e.message));
+      });
+
+      elNotificationsPrev.addEventListener('click', () => {
+        notificationsOffset = Math.max(0, notificationsOffset - notificationsLimit);
+        renderRoute().catch((e) => showToast(e.message));
+      });
+
+      elNotificationsNext.addEventListener('click', () => {
+        notificationsOffset = notificationsOffset + notificationsLimit;
+        renderRoute().catch((e) => showToast(e.message));
+      });
+
+      document.getElementById('refresh').addEventListener('click', () => load().catch(e => showToast(e.message)));
+      elSearch.addEventListener('input', render);
+
+      elGrid.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (btn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const action = btn.getAttribute('data-action');
+          const incidentId = btn.getAttribute('data-incident');
+          try {
+            if (action === 'approve') {
+              await api(`/api/incidents/${incidentId}/approve`, { method: 'POST' });
+              showToast('Approved');
+              await load();
+              return;
+            }
+            if (action === 'reject') {
+              await api(`/api/incidents/${incidentId}/reject`, { method: 'POST' });
+              showToast('Rejected');
+              await load();
+              return;
+            }
+          } catch (err) {
+            showToast(err.message || 'Action failed');
+          }
+          return;
+        }
+
+        const card = e.target.closest('div[data-app]');
+        if (!card) return;
+        const appId = card.getAttribute('data-app');
+        window.location.hash = `#/app/${encodeURIComponent(appId)}`;
+      });
+
+      elIncidentsList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        const incidentId = btn.getAttribute('data-incident');
+        try {
+          if (action === 'approve') {
+            await api(`/api/incidents/${incidentId}/approve`, { method: 'POST' });
+            showToast('Approved');
+            await load();
+            await renderRoute();
+            return;
+          }
+          if (action === 'reject') {
+            await api(`/api/incidents/${incidentId}/reject`, { method: 'POST' });
+            showToast('Rejected');
+            await load();
+            await renderRoute();
+            return;
+          }
+        } catch (err) {
+          showToast(err.message || 'Action failed');
+        }
+      });
+
+      function addMessage(role, text, actions = []) {
+        const bubbleCls = role === 'user'
+          ? 'ml-auto bg-violet-600 text-white'
+          : 'mr-auto bg-slate-100 text-slate-900';
+        const container = document.createElement('div');
+        container.className = 'flex flex-col gap-2';
+
+        const bubble = document.createElement('div');
+        bubble.className = `max-w-[85%] rounded-2xl px-3 py-2 text-sm ${bubbleCls}`;
+        if (role === 'assistant') {
+          const raw = (window.marked && typeof window.marked.parse === 'function')
+            ? window.marked.parse(text)
+            : escapeHtml(text).replaceAll('\n', '<br>');
+          const safe = (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
+            ? window.DOMPurify.sanitize(raw)
+            : raw;
+          bubble.innerHTML = `<div class="argus-md">${safe}</div>`;
+        } else {
+          bubble.classList.add('whitespace-pre-wrap');
+          bubble.textContent = text;
+        }
+        container.appendChild(bubble);
+
+        if (actions && actions.length) {
+          const row = document.createElement('div');
+          row.className = 'flex flex-wrap gap-2';
+          actions.forEach((a) => {
+            const b = document.createElement('button');
+            b.className = 'rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800';
+            b.type = 'button';
+            b.textContent = a.label;
+            b.addEventListener('click', async () => {
+              try {
+                await api(a.endpoint, { method: a.method || 'POST', body: JSON.stringify(a.body || {}) });
+                showToast('Action executed');
+                await load();
+              } catch (e) {
+                showToast(e.message);
+              }
+            });
+            row.appendChild(b);
+          });
+          container.appendChild(row);
+        }
+
+        elChatMessages.appendChild(container);
+        elChatMessages.scrollTop = elChatMessages.scrollHeight;
+
+        if (role === 'user' || role === 'assistant') {
+          chatHistory.push({ role, content: text });
+          if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+        }
+      }
+
+      elChatOpen.addEventListener('click', () => {
+        elChat.classList.remove('hidden');
+        elChatOpen.classList.add('hidden');
+        elChatInput.focus();
+      });
+
+      function applyChatSize() {
+        if (chatMaximized) {
+          elChat.classList.remove('w-[380px]');
+          elChat.classList.add('w-[min(92vw,900px)]');
+          elChatMessages.classList.remove('max-h-[420px]');
+          elChatMessages.classList.add('max-h-[70vh]');
+          elChatMax.textContent = 'Restore';
+          return;
+        }
+        elChat.classList.add('w-[380px]');
+        elChat.classList.remove('w-[min(92vw,900px)]');
+        elChatMessages.classList.add('max-h-[420px]');
+        elChatMessages.classList.remove('max-h-[70vh]');
+        elChatMax.textContent = 'Maximize';
+      }
+
+      elChatMax.addEventListener('click', () => {
+        chatMaximized = !chatMaximized;
+        applyChatSize();
+      });
+
+      elChatClose.addEventListener('click', () => {
+        elChat.classList.add('hidden');
+        elChatOpen.classList.remove('hidden');
+      });
+
+      elChatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = (elChatInput.value || '').trim();
+        if (!text) return;
+        elChatInput.value = '';
+        addMessage('user', text);
+        elChatInput.disabled = true;
+        const sendBtn = elChatForm.querySelector('button[type="submit"]');
+        if (sendBtn) sendBtn.disabled = true;
+        showThinking();
+        try {
+          const resp = await api('/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({ message: text, app_id: selectedAppId, history: chatHistory })
+          });
+          hideThinking();
+          addMessage('assistant', resp.message, resp.actions || []);
+        } catch (err) {
+          hideThinking();
+          addMessage('assistant', err.message || 'Chat failed');
+        } finally {
+          elChatInput.disabled = false;
+          if (sendBtn) sendBtn.disabled = false;
+          elChatInput.focus();
+        }
+      });
+
+      load().catch((e) => showToast(e.message));
+    </script>
+  </body>
+</html>
