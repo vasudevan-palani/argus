@@ -1,169 +1,174 @@
-Argus 👁️
+# Argus — AI Platform Health Monitoring Service
+
+Argus is a **config-driven AI platform health monitoring system** that evaluates the operational health of applications deployed across cloud regions, correlates failures with AWS service outages, and coordinates notifications and remediation recommendations.
+
+## Architecture
+
+```
+argus/
+├── argus/
+│   ├── agent/             # AI agent orchestration
+│   │   ├── health_evaluator.py   # Deterministic health scoring
+│   │   └── orchestrator.py       # AI reasoning (GPT-4o + fallback)
+│   ├── config/            # Configuration loading & validation
+│   │   └── loader.py
+│   ├── engine.py          # Main monitoring engine
+│   ├── cli.py             # CLI interface (typer)
+│   ├── notifications/     # Notification & escalation
+│   │   └── escalation.py
+│   ├── persistence/       # SQLite data layer
+│   │   └── database.py
+│   └── tools/             # Operational tool integrations
+│       ├── health.py             # get_health()
+│       ├── aws_outage.py         # get_aws_services_outage()
+│       ├── traffic.py            # flip_application_traffic()
+│       └── notification.py       # send_notification()
+├── monitor.config.yaml    # Application configuration
+├── pyproject.toml
+└── README.md
+```
+
+## Installation
+
+```bash
+cd argus
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+All application monitoring is configured in `monitor.config.yaml`. See the example for full schema.
+
+Copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+## Usage
+
+### Validate configuration
+```bash
+argus check
+argus check --config monitor.config.yaml
+```
+
+### Run a single monitoring cycle
+```bash
+argus monitor --once
+argus monitor --once --no-dry-run   # Enable real traffic flips
+```
+
+### Run continuous monitoring
+```bash
+argus monitor
+argus monitor --log-level DEBUG
+```
+
+### View current status
+```bash
+argus status
+```
+
+### List incidents
+```bash
+argus incidents
+argus incidents --app checkout-service
+argus incidents --limit 50
+```
+
+### Approve a failover
+```bash
+argus approve <approval-token>
+argus approve <token> --operator "John Doe" --no-dry-run
+```
+
+## Health Scoring
+
+| Score | Status   |
+|-------|----------|
+| 90–100 | Healthy  |
+| 70–89  | Degraded |
+| 0–69   | Down     |
+
+Scores are calculated deterministically from:
+- **Availability** (0–30 pts)
+- **Error rate** (0–25 pts)
+- **Latency P99** (0–20 pts)
+- **Active alarms** (0–15 pts)
+- **Dependency health** (0–10 pts)
+
+AI (GPT-4o) is used for incident summarization and recommendations. The deterministic score is always the source of truth.
 
-Observe. Learn. Act.
+## Testing Scenarios
 
-Argus is an intelligent, generative AI–powered platform designed to augment human operators by continuously observing systems, learning from behavior and signals, and taking action when needed.
+Use environment variables to simulate different health scenarios:
 
-Today, humans spend enormous effort monitoring dashboards, logs, alerts, and metrics—then manually deciding if, when, and how to act.
-Argus exists to reduce that cognitive load, automate decision support, and progressively enable autonomous action with human oversight.
+```bash
+# Make checkout-service degraded in us-east-1
+export ARGUS_HEALTH_CHECKOUT_SERVICE_US_EAST_1_SCENARIO=degraded
 
-🚀 Vision
+# Make checkout-service passive region healthy
+export ARGUS_HEALTH_CHECKOUT_SERVICE_US_WEST_2_SCENARIO=healthy
 
-Argus is built on a simple but powerful loop:
+# Simulate AWS RDS outage in us-east-1
+export ARGUS_AWS_OUTAGE_RDS_US_EAST_1_STATUS=degraded
 
-Observe → Learn → Act → Improve
+# Run a single cycle to see results
+argus monitor --once
+```
 
-Observe software systems in real time
+## Notification Channels
 
-Learn from historical data, patterns, and human decisions
+- **Teams**: Via webhook URL (per-app config or env var)
+- **SMS**: Via Twilio (set `TWILIO_*` env vars)
+- **Voice Call**: Via Twilio
 
-Act by recommending or executing actions
+Without Twilio credentials, SMS/calls are logged to stdout as dry-run output.
 
-Assist humans, not replace them
+## Safety
 
-The goal is augmentation first, autonomy where appropriate.
+- Traffic flips NEVER execute without explicit human approval
+- All actions are auditable via SQLite database
+- AI cannot override deterministic health scores
+- Approval tokens expire after configured timeout
+- Dry-run mode enabled by default (`--dry-run`)
 
-🧠 What Argus Does
-1. Observe
+## Escalation Flow
 
-Argus continuously ingests signals from software systems, such as:
+1. Immediate → Teams (primary)
+2. +5 min → SMS (primary)
+3. +10 min → Voice call (primary)
+4. +15 min → SMS (secondary)
 
-Logs, metrics, traces
+Escalation stops when incident is acknowledged or resolved.
 
-Events and alerts
+## Start Local server
 
-Configuration and deployment changes
+### Create virtual env
+virtualenv .venv
 
-External signals (tickets, incidents, feedback)
+### Install requirements
+pip3 install uv
+uv pip install .
 
-It builds a holistic, contextual view of system behavior rather than isolated alerts.
+### Set up environment variables
+These variables should be in a file called .env in the root of this repo.
 
-2. Learn
+export ARGUS_CHECKOUT_TEAMS_WEBHOOK=<webhook url of workflow/power automate type>
+export ARGUS_HEALTH_CHECKOUT_SERVICE_US_EAST_1_SCENARIO=down -- set this only if you want to mock a downtime
+export TWILIO_ACCOUNT_SID=<>
+export TWILIO_FROM_NUMBER=<>
+export TWILIO_AUTH_TOKEN=<>
+export ARGUS_SERVER_URL=http://localhost:8080
+export OPENAI_API_KEY=<>
 
-Using generative intelligence and learning loops, Argus:
+### Start incident dashboard
+python3 -m argus.cli serve --port 8080 --no-dry-run
 
-Identifies patterns, anomalies, and trends
+### Start portal server
+python3 -m argus.cli portal --no-dry-run
 
-Learns from past incidents and resolutions
-
-Adapts to environment-specific behavior
-
-Incorporates human feedback and decisions
-
-Over time, Argus develops operational intuition similar to an experienced engineer.
-
-3. Act
-
-Argus can:
-
-Suggest next-best actions to humans
-
-Generate explanations and reasoning
-
-Automate safe, repeatable remediation steps
-
-Trigger workflows, scripts, or integrations
-
-Actions can be:
-
-Human-in-the-loop
-
-Approval-based
-
-Fully autonomous (for low-risk scenarios)
-
-🤝 Human-Centered by Design
-
-Argus is not a “black box”.
-
-It is built to:
-
-Explain why it thinks something is happening
-
-Show what it plans to do
-
-Allow humans to approve, override, or refine actions
-
-Learn directly from operator input
-
-Think of Argus as a copilot for operations, not an autopilot by default.
-
-🏗️ Architecture (High-Level)
-
-While the implementation evolves, Argus is designed around:
-
-Signal ingestion layer (events, logs, metrics)
-
-Context & memory layer (short-term + long-term memory)
-
-Reasoning & decision layer (LLMs + policies)
-
-Action layer (automations, integrations, workflows)
-
-Feedback loop (human input + outcomes)
-
-This modular design allows Argus to plug into existing ecosystems.
-
-🔐 Safety & Control
-
-Autonomy is earned, not assumed.
-
-Argus emphasizes:
-
-Guardrails and policies
-
-Auditable decisions and actions
-
-Role-based controls
-
-Progressive autonomy based on confidence and trust
-
-📌 Use Cases
-
-Production monitoring & incident response
-
-Operational triage and root-cause analysis
-
-Automated remediation for common failures
-
-Decision support for SRE, DevOps, and Platform teams
-
-Any domain where humans watch systems and react
-
-🧪 Project Status
-
-Early-stage / Active Development
-
-Expect:
-
-Rapid iteration
-
-Experimental features
-
-Architecture changes as learning evolves
-
-🤖 Why “Argus”?
-
-In Greek mythology, Argus Panoptes was the all-seeing guardian—known for his many eyes and constant vigilance.
-
-This project carries the same spirit:
-
-Always watching, always learning, always ready to act.
-
-📄 License
-
-TBD
-
-🛣️ Roadmap (High-Level)
-
- Core observation & signal ingestion
-
- Contextual memory and learning loop
-
- Explainable reasoning layer
-
- Human-in-the-loop actions
-
- Safe autonomous execution
-
- Feedback-driven continuous improvement
+### Start monitoring service
+python3 -m argus.cli monitor

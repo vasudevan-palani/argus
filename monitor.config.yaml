@@ -1,0 +1,162 @@
+global:
+  polling_interval_seconds: 30
+  ai_model: gpt-4o
+  concurrency_limit: 5
+  approval_timeout_minutes: 15
+  log_level: INFO
+
+applications:
+  - id: checkout-service
+    name: Checkout Service
+    team: checkout-team
+
+    owners:
+      primary:
+        name: Checkout Team Lead
+        email: checkout@company.com
+        # Phone stored here; webhook URLs via env vars for security
+        phone: "+12345678900"
+      secondary:
+        name: Checkout Backup
+        email: checkout-backup@company.com
+        phone: "+12345678900"
+
+    notifications:
+      teams:
+        # Option A: store directly (fastest POC)
+        # webhook_url: "https://example.webhook.office.com/webhookb2/..."
+        # Option B: use environment variable (recommended for shared environments)
+        webhook_env: ARGUS_CHECKOUT_TEAMS_WEBHOOK
+      sms:
+        enabled: true
+      call:
+        enabled: true
+
+    topology: active_passive
+
+    regions:
+      active: us-east-1
+      passive: us-west-2
+
+    dependencies:
+      - service: RDS
+        region: us-east-1
+        criticality: critical
+      - service: SQS
+        region: us-east-1
+        criticality: medium
+      - service: RDS
+        region: us-west-2
+        criticality: critical
+
+    failover:
+      allowed: true
+      approval_required: true
+      cooldown_minutes: 60
+
+    escalation:
+      - delay_minutes: 0
+        channel: teams
+        target: primary
+      - delay_minutes: 1
+        channel: sms
+        target: primary
+      - delay_minutes: 2
+        channel: call
+        target: primary
+      - delay_minutes: 15
+        channel: sms
+        target: secondary
+
+  - id: payment-service
+    name: Payment Service
+    team: payments-team
+
+    owners:
+      primary:
+        name: Payments Team
+        email: payments@company.com
+        phone: "+14085559876"
+      secondary:
+        name: Payments Backup
+        email: payments-backup@company.com
+        phone: "+14085553456"
+
+    notifications:
+      teams:
+        webhook_env: ARGUS_PAYMENTS_TEAMS_WEBHOOK
+      sms:
+        enabled: true
+      call:
+        enabled: false
+
+    topology: single_region
+
+    regions:
+      region: us-east-1
+
+    dependencies:
+      - service: RDS
+        region: us-east-1
+        criticality: critical
+      - service: ElastiCache
+        region: us-east-1
+        criticality: medium
+
+    failover:
+      allowed: false
+
+    escalation:
+      - delay_minutes: 0
+        channel: teams
+        target: primary
+      - delay_minutes: 5
+        channel: sms
+        target: primary
+      - delay_minutes: 15
+        channel: sms
+        target: secondary
+
+  - id: user-api
+    name: User API
+    team: platform-team
+
+    owners:
+      primary:
+        name: Platform Team
+        email: platform@company.com
+        phone: "+14085557890"
+
+    notifications:
+      teams:
+        webhook_env: ARGUS_USERAPI_TEAMS_WEBHOOK
+      sms:
+        enabled: false
+      call:
+        enabled: false
+
+    topology: multi_region
+
+    regions:
+      list:
+        - us-east-1
+        - eu-west-1
+
+    dependencies:
+      - service: DynamoDB
+        region: us-east-1
+        criticality: critical
+      - service: DynamoDB
+        region: eu-west-1
+        criticality: critical
+
+    failover:
+      allowed: false
+
+    escalation:
+      - delay_minutes: 0
+        channel: teams
+        target: primary
+      - delay_minutes: 10
+        channel: sms
+        target: primary
