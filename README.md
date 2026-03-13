@@ -143,3 +143,32 @@ Without Twilio credentials, SMS/calls are logged to stdout as dry-run output.
 4. +15 min → SMS (secondary)
 
 Escalation stops when incident is acknowledged or resolved.
+
+## Start Local server
+
+### Create virtual env
+virtualenv .venv
+
+### Install requirements
+pip3 install uv
+uv pip install .
+
+### Set up environment variables
+These variables should be in a file called .env in the root of this repo.
+
+export ARGUS_CHECKOUT_TEAMS_WEBHOOK=<webhook url of workflow/power automate type>
+export ARGUS_HEALTH_CHECKOUT_SERVICE_US_EAST_1_SCENARIO=down -- set this only if you want to mock a downtime
+export TWILIO_ACCOUNT_SID=<>
+export TWILIO_FROM_NUMBER=<>
+export TWILIO_AUTH_TOKEN=<>
+export ARGUS_SERVER_URL=http://localhost:8080
+export OPENAI_API_KEY=<>
+
+### Start incident dashboard
+python3 -m argus.cli serve --port 8080 --no-dry-run
+
+### Start portal server
+python3 -m argus.cli portal --no-dry-run
+
+### Start monitoring service
+python3 -m argus.cli monitor
